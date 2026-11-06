@@ -1,78 +1,199 @@
 .stage {
+    --green: #5cc96b;
+    --orange: #ffa94d;
+    --red: #ff6b6b;
+    --ink: #2d3142;
+
     position: fixed;
     inset: 0;
+    box-sizing: border-box;
+    padding: 24px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 3vh;
-    background: #f2f2f2;
-    transition: background-color .6s ease;
-    font-family: system-ui, sans-serif;
+    text-align: center;
+    font-family: "Fredoka", "Comic Sans MS", system-ui, sans-serif;
+    color: var(--ink);
+
+    /* Startbildschirm: Himmelblau mit ein paar "Wolken" */
+    background-color: #8ec5ff;
+    background-image:
+        radial-gradient(circle at 12% 18%, rgba(255,255,255,.35) 0 70px, transparent 71px),
+        radial-gradient(circle at 88% 80%, rgba(255,255,255,.25) 0 110px, transparent 111px),
+        radial-gradient(circle at 78% 12%, rgba(255,255,255,.2) 0 45px, transparent 46px);
+    transition: background-color .8s ease;
 }
 
-.mood-happy   { background: #d9f2df; }
-.mood-neutral { background: #fbf0c9; }
-.mood-unhappy { background: #f8d4d0; }
+/* Ampelfarben je nach Lautstärke */
+.mood-happy   { background-color: var(--green); }
+.mood-neutral { background-color: var(--orange); }
+.mood-unhappy { background-color: var(--red); }
+
+/* ---------- Startkarte ---------- */
+.card {
+    background: #fff;
+    border-radius: 36px;
+    padding: 40px 56px;
+    max-width: 90vw;
+    box-shadow: 0 10px 0 rgba(0,0,0,.1), 0 24px 50px rgba(0,0,0,.15);
+}
+
+.lights {
+    display: inline-flex;
+    gap: 14px;
+    padding: 14px 22px;
+    border-radius: 40px;
+    background: var(--ink);
+}
+
+.l {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    opacity: .3;
+    animation: blink 3s infinite;
+}
+.l.green  { background: var(--green); }
+.l.orange { background: var(--orange); animation-delay: 1s; }
+.l.red    { background: var(--red);    animation-delay: 2s; }
+
+.start h1 {
+    font-size: clamp(2.5rem, 9vh, 5rem);
+    font-weight: 700;
+    margin: 16px 0 4px;
+}
+
+.subtitle {
+    font-size: 1.4rem;
+    margin: 0 0 32px;
+    color: #6b7080;
+}
+
+.big {
+    font-family: inherit;
+    font-size: 2rem;
+    font-weight: 700;
+    padding: 18px 56px;
+    border: none;
+    border-radius: 999px;
+    background: var(--green);
+    color: #fff;
+    cursor: pointer;
+    box-shadow: 0 8px 0 #3e9e4c;
+    transition: transform .1s, box-shadow .1s;
+}
+.big:active {
+    transform: translateY(6px);
+    box-shadow: 0 2px 0 #3e9e4c;
+}
+
+.error {
+    color: #c62828;
+    margin-top: 20px;
+    max-width: 520px;
+}
+
+/* ---------- Laufende Ampel ---------- */
+.title {
+    margin: 0;
+    font-size: clamp(2rem, 7vh, 4.5rem);
+    font-weight: 700;
+    color: #fff;
+    text-shadow: 0 4px 0 rgba(0,0,0,.15);
+}
+
+.face-wrap {
+    width: min(58vh, 80vw);
+    aspect-ratio: 1;
+    border-radius: 50%;
+    overflow: hidden;
+    background: transparent;
+    border: 12px solid rgba(255,255,255,.7);
+    box-shadow: 0 14px 0 rgba(0,0,0,.12), 0 24px 50px rgba(0,0,0,.18);
+}
 
 .face {
-    max-width: 80vw;
-    max-height: 72vh;
-    object-fit: contain;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    animation: pop .45s ease-out;
+}
+
+/* Bei "zu laut" wackelt das Gesicht leicht */
+.mood-unhappy .face-wrap {
+    animation: wobble 1.2s ease-in-out infinite;
 }
 
 .meter {
     position: relative;
     width: min(80vw, 900px);
-    height: 28px;
-    border-radius: 14px;
-    background: rgba(0, 0, 0, .08);
-    overflow: hidden;
+    height: 34px;
+    border-radius: 20px;
+    border: 6px solid #fff;
+    box-shadow: 0 6px 0 rgba(0,0,0,.12);
+    background: linear-gradient(to right,
+        var(--green)  0             var(--happy),
+        var(--orange) var(--happy)  var(--neutral),
+        var(--red)    var(--neutral) 100%);
 }
 
-.fill {
-    height: 100%;
-    background: #555;
-    opacity: .55;
-    transition: width .1s linear;
-}
-
-.mark {
+.thumb {
     position: absolute;
-    top: 0;
-    bottom: 0;
-    width: 3px;
-    background: #222;
+    top: 50%;
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    background: #fff;
+    border: 6px solid var(--ink);
+    transform: translate(-50%, -50%);
+    transition: left .15s linear;
 }
 
-.start { text-align: center; }
-.start h1 { font-size: 3rem; }
-
-.big {
-    font-size: 2rem;
-    padding: 20px 60px;
-    border-radius: 16px;
-    border: none;
-    background: #2f7d4f;
-    color: #fff;
-}
-
-.error { color: #b3261e; max-width: 600px; }
-
+/* ---------- Buttons oben rechts ---------- */
 .toolbar {
     position: fixed;
     top: 16px;
     right: 16px;
     display: flex;
-    gap: 8px;
+    gap: 10px;
 }
 
 .toolbar button {
-    width: 56px;
-    height: 56px;
-    font-size: 1.6rem;
-    border-radius: 50%;
+    width: 60px;
+    height: 60px;
+    font-size: 1.7rem;
     border: none;
-    background: rgba(255, 255, 255, .8);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, .15);
+    border-radius: 50%;
+    background: #fff;
+    color: var(--ink);
+    cursor: pointer;
+    box-shadow: 0 5px 0 rgba(0,0,0,.15);
+}
+.toolbar button:active {
+    transform: translateY(4px);
+    box-shadow: 0 1px 0 rgba(0,0,0,.15);
+}
+
+/* ---------- Animationen ---------- */
+@keyframes pop {
+    0%   { transform: scale(.7); opacity: 0; }
+    70%  { transform: scale(1.06); opacity: 1; }
+    100% { transform: scale(1); }
+}
+
+@keyframes wobble {
+    0%, 100% { transform: rotate(0); }
+    25%      { transform: rotate(-3deg); }
+    75%      { transform: rotate(3deg); }
+}
+
+@keyframes blink {
+    0%, 30%   { opacity: 1; transform: scale(1.1); }
+    34%, 100% { opacity: .3; transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .face, .l, .mood-unhappy .face-wrap { animation: none; }
 }

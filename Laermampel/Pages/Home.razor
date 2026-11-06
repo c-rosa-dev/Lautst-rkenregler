@@ -13,9 +13,15 @@
 <main class="stage @MoodClass">
     @if (!_running || _evaluator is null)
     {
-        <div class="start">
+        <div class="start card">
+            <div class="lights" aria-hidden="true">
+                <span class="l green"></span>
+                <span class="l orange"></span>
+                <span class="l red"></span>
+            </div>
             <h1>Lärmampel</h1>
-            <button class="big" @onclick="StartAsync">Starten</button>
+            <p class="subtitle">Wie leise schaffen wir es heute?</p>
+            <button class="big" @onclick="StartAsync">▶ Los geht's!</button>
             @if (_error is not null)
             {
                 <p class="error">@_error</p>
@@ -24,12 +30,15 @@
     }
     else
     {
-        <img class="face" src="@Media.GetFace(_evaluator.Current)" alt="@_evaluator.Current" />
+        <h1 class="title">@MoodText</h1>
 
-        <div class="meter">
-            <div class="fill" style="width:@Pct(_evaluator.SmoothedLevel)"></div>
-            <div class="mark" style="left:@Pct(_settings.HappyMax)"></div>
-            <div class="mark" style="left:@Pct(_settings.NeutralMax)"></div>
+        <div class="face-wrap">
+            <img @key="_evaluator.Current" class="face"
+                 src="@Media.GetFace(_evaluator.Current)" alt="@MoodText" />
+        </div>
+
+        <div class="meter" style="@MeterVars">
+            <div class="thumb" style="left:@Pct(_evaluator.SmoothedLevel)"></div>
         </div>
     }
 
@@ -67,7 +76,16 @@
         ? $"mood-{_evaluator.Current.ToString().ToLowerInvariant()}"
         : "";
 
-    protected override async Task OnInitializedAsync()
+
+private string MoodText => _evaluator?.Current switch
+{
+    Mood.Happy => "Super leise! 🌟",
+    Mood.Neutral => "Etwas leiser, bitte 🤫",
+    _ => "Viel zu laut! 🙉"
+};
+
+// Gibt die Schwellen ans CSS weiter, damit der Balken die Ampel-Zonen richtig einfärbt
+private string MeterVars => $"--happy:{Pct(_settings.HappyMax)};--neutral:{Pct(_settings.NeutralMax)}";    protected override async Task OnInitializedAsync()
     {
         _settings = await SettingsService.LoadAsync();
          await Media.LoadAsync();                  

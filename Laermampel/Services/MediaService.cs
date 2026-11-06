@@ -36,18 +36,21 @@ public class MediaService(IJSRuntime js)
         if (!file.ContentType.StartsWith("image/")) return "Das ist kein Bild.";
 
         try
-        {
-            // Der Browser verkleinert das Foto, sonst wird localStorage zu schnell voll
-            var resized = await file.RequestImageFileAsync("image/jpeg", 800, 800);
-            await using var stream = resized.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
-            using var ms = new MemoryStream();
-            await stream.CopyToAsync(ms);
+{
+    // PNG/WebP/GIF können Transparenz haben -> als PNG speichern, Fotos weiter als JPEG (kleiner)
+    var keepAlpha = file.ContentType is "image/png" or "image/webp" or "image/gif";
+    var format = keepAlpha ? "image/png" : "image/jpeg";
 
-            var dataUrl = "data:image/jpeg;base64," + Convert.ToBase64String(ms.ToArray());
-            await js.InvokeVoidAsync("localStorage.setItem", KeyPrefix + mood, dataUrl);
-            _custom[mood] = dataUrl;
-            return null;
-        }
+    var resized = await file.RequestImageFileAsync(format, 600, 600);
+    await using var stream = resized.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
+    using var ms = new MemoryStream();
+    await stream.CopyToAsync(ms);
+
+    var dataUrl = $"data:{format};base64," + Convert.ToBase64String(ms.ToArray());
+    await js.InvokeVoidAsync("localStorage.setItem", KeyPrefix + mood, dataUrl);
+    _custom[mood] = dataUrl;
+    return null;
+}
         catch (JSException) { return "Bild konnte nicht gespeichert werden (Speicher voll?)."; }
         catch (IOException) { return "Das Bild ist zu groß."; }
     }
