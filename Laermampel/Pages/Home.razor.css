@@ -1,0 +1,78 @@
+.stage {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3vh;
+    background: #f2f2f2;
+    transition: background-color .6s ease;
+    font-family: system-ui, sans-serif;
+}
+
+.mood-happy   { background: #d9f2df; }
+.mood-neutral { background: #fbf0c9; }
+.mood-unhappy { background: #f8d4d0; }
+
+.face {
+    max-width: 80vw;
+    max-height: 72vh;
+    object-fit: contain;
+}
+
+.meter {
+    position: relative;
+    width: min(80vw, 900px);
+    height: 28px;
+    border-radius: 14px;
+    background: rgba(0, 0, 0, .08);
+    overflow: hidden;
+}
+
+.fill {
+    height: 100%;
+    background: #555;
+    opacity: .55;
+    transition: width .1s linear;
+}
+
+.mark {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: #222;
+}
+
+.start { text-align: center; }
+.start h1 { font-size: 3rem; }
+
+.big {
+    font-size: 2rem;
+    padding: 20px 60px;
+    border-radius: 16px;
+    border: none;
+    background: #2f7d4f;
+    color: #fff;
+}
+
+.error { color: #b3261e; max-width: 600px; }
+
+.toolbar {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    display: flex;
+    gap: 8px;
+}
+
+.toolbar button {
+    width: 56px;
+    height: 56px;
+    font-size: 1.6rem;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255, 255, 255, .8);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .15);
+}

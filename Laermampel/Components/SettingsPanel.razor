@@ -1,0 +1,113 @@
+@using System.Globalization
+@using Laermampel.Models
+@using Laermampel.Services
+@using Microsoft.AspNetCore.Components.Forms
+@inject MediaService Media
+
+<div class="backdrop" @onclick="OnClose"></div>
+<div class="panel">
+    <h2>Einstellungen</h2>
+    <p class="live">Aktueller Pegel: <strong>@CurrentLevel.ToString("0")</strong></p>
+
+    <label>
+        Glücklich bis <strong>@Settings.HappyMax.ToString("0")</strong>
+        <input type="range" min="0" max="100" step="1"
+               @bind="Settings.HappyMax" @bind:event="oninput" @bind:after="Normalize"
+               @bind:culture="CultureInfo.InvariantCulture" />
+    </label>
+
+    <label>
+        Mittel bis <strong>@Settings.NeutralMax.ToString("0")</strong>
+        <input type="range" min="0" max="100" step="1"
+               @bind="Settings.NeutralMax" @bind:event="oninput" @bind:after="Normalize"
+               @bind:culture="CultureInfo.InvariantCulture" />
+    </label>
+
+    <label>
+        Reaktionszeit <strong>@Settings.HoldSeconds.ToString("0.0") s</strong>
+        <input type="range" min="0" max="5" step="0.5"
+               @bind="Settings.HoldSeconds" @bind:event="oninput"
+               @bind:culture="CultureInfo.InvariantCulture" />
+    </label>
+
+    <label class="check">
+        <input type="checkbox" @bind="Settings.PsstEnabled" /> Psst abspielen
+    </label>
+
+    @if (Settings.PsstEnabled)
+    {
+        <label>
+            Psst nach <strong>@Settings.PsstAfterSeconds.ToString("0") s</strong> zu laut
+            <input type="range" min="1" max="20" step="1"
+                   @bind="Settings.PsstAfterSeconds" @bind:event="oninput"
+                   @bind:culture="CultureInfo.InvariantCulture" />
+        </label>
+        <label>
+            Pause zwischen zwei Psst <strong>@Settings.PsstCooldownSeconds.ToString("0") s</strong>
+            <input type="range" min="3" max="60" step="1"
+                   @bind="Settings.PsstCooldownSeconds" @bind:event="oninput"
+                   @bind:culture="CultureInfo.InvariantCulture" />
+        </label>
+    }
+<h3>Bilder</h3>
+@foreach (var mood in Enum.GetValues<Mood>())
+{
+    <div class="face-row">
+        <img src="@Media.GetFace(mood)" alt="" />
+        <span>@Label(mood)</span>
+        <label class="upload">
+            Bild wählen
+            <InputFile accept="image/*" OnChange="e => UploadAsync(mood, e)" />
+        </label>
+        @if (Media.HasCustomFace(mood))
+        {
+            <button class="small" title="Zurücksetzen" @onclick="() => Media.ResetFaceAsync(mood)">↺</button>
+        }
+    </div>
+}
+@if (_imageError is not null)
+{
+    <p class="error">@_imageError</p>
+}
+    
+
+    <div class="buttons">
+        <button @onclick="OnCalibrate" disabled="@(!CanCalibrate || IsCalibrating)">
+            @(IsCalibrating ? "Messe Ruhe … (5 s)" : "Ruhe kalibrieren")
+        </button>
+        <button @onclick="OnReset">Standard</button>
+        <button class="primary" @onclick="OnSave">Speichern</button>
+    </div>
+</div>
+@code {
+    // [Parameter] entspricht @Input() in Angular, EventCallback entspricht @Output()
+    [Parameter, EditorRequired] public AmpelSettings Settings { get; set; } = default!;
+    [Parameter] public double CurrentLevel { get; set; }
+    [Parameter] public bool IsCalibrating { get; set; }
+    [Parameter] public bool CanCalibrate { get; set; }
+    [Parameter] public EventCallback OnSave { get; set; }
+    [Parameter] public EventCallback OnCalibrate { get; set; }
+    [Parameter] public EventCallback OnReset { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private string? _imageError;
+
+    // "Mittel" darf nie unter "Glücklich" rutschen
+    private void Normalize()
+    {
+        if (Settings.NeutralMax <= Settings.HappyMax)
+            Settings.NeutralMax = Math.Min(100, Settings.HappyMax + 1);
+    }
+
+    private async Task UploadAsync(Mood mood, InputFileChangeEventArgs e)
+    {
+        _imageError = await Media.SetFaceAsync(mood, e.File);
+    }
+
+    private static string Label(Mood mood) => mood switch
+    {
+        Mood.Happy => "Glücklich",
+        Mood.Neutral => "Mittel",
+        _ => "Unglücklich"
+    };
+}

@@ -1,0 +1,174 @@
+@page "/"
+@using System.Diagnostics
+@using System.Globalization
+@using Laermampel.Components
+@using Laermampel.Models
+@using Laermampel.Services
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+@inject SettingsService SettingsService
+@inject MediaService Media
+
+<PageTitle>Lärmampel</PageTitle>
+git branch
+    @if (!_running || _evaluator is null)
+    {
+        <div class="start">
+            <h1>Lärmampel</h1>
+            <button class="big" @onclick="StartAsync">Starten</button>
+            @if (_error is not null)
+            {
+                <p class="error">@_error</p>
+            }
+        </div>
+    }
+    else
+    {
+        <img class="face" src="@Media.GetFace(_evaluator.Current)" alt="@_evaluator.Current" />
+
+        <div class="meter">
+            <div class="fill" style="width:@Pct(_evaluator.SmoothedLevel)"></div>
+            <div class="mark" style="left:@Pct(_settings.HappyMax)"></div>
+            <div class="mark" style="left:@Pct(_settings.NeutralMax)"></div>
+        </div>
+    }
+
+    <div class="toolbar">
+        <button title="Vollbild" @onclick="ToggleFullscreenAsync">⛶</button>
+        <button title="Einstellungen" @onclick="() => _showSettings = !_showSettings">⚙</button>
+    </div>
+
+    @if (_showSettings)
+    {
+        <SettingsPanel Settings="_settings"
+                       CurrentLevel="_evaluator?.SmoothedLevel ?? 0"
+                       IsCalibrating="_calibrationSamples is not null"
+                       CanCalibrate="_running"
+                       OnSave="SaveAsync"
+                       OnCalibrate="CalibrateAsync"
+                       OnReset="ResetAsync"
+                       OnClose="() => _showSettings = false" />
+    }
+</main>
+
+@code {
+    private IJSObjectReference? _module;
+    private DotNetObjectReference<Home>? _selfRef;
+    private AmpelSettings _settings = new();
+    private MoodEvaluator? _evaluator;
+    private readonly Stopwatch _clock = new();
+    private double _lastTick;
+    private bool _running;
+    private bool _showSettings;
+    private string? _error;
+    private List<double>? _calibrationSamples;
+
+    private string MoodClass => _running && _evaluator is not null
+        ? $"mood-{_evaluator.Current.ToString().ToLowerInvariant()}"
+        : "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _settings = await SettingsService.LoadAsync();
+         await Media.LoadAsync();                  
+        _evaluator = new MoodEvaluator(_settings);   // hält eine Referenz -> Slider wirken sofort
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+            _module = await JS.InvokeAsync<IJSObjectReference>("import", "./js/mic.js");
+    }
+
+    private async Task StartAsync()
+    {
+        if (_module is null) return;
+        _error = null;
+        try
+        {
+            _selfRef ??= DotNetObjectReference.Create(this);
+            _clock.Restart();
+            _lastTick = 0;
+            await _module.InvokeVoidAsync("start", _selfRef, 100);   // alle 100 ms ein Messwert
+            _running = true;
+        }
+        catch (JSException ex)
+        {
+            _error = $"Kein Mikrofonzugriff möglich ({ex.Message}). Bitte im Browser erlauben.";
+        }
+    }
+
+    // Wird von mic.js ca. 10x pro Sekunde aufgerufen
+    [JSInvokable]
+    public void OnLevel(double rms)
+    {
+        if (_evaluator is null) return;
+
+        var now = _clock.Elapsed.TotalSeconds;
+        var dt = now - _lastTick;
+        _lastTick = now;
+
+        var level = MoodEvaluator.ToLevel(rms);
+        _calibrationSamples?.Add(level);
+
+        if (_evaluator.Update(level, now, dt))
+            _ = _module?.InvokeVoidAsync("playPsst", Media.PsstSound).AsTask();
+
+        StateHasChanged();
+    }
+
+    private async Task CalibrateAsync()
+    {
+        if (!_running || _calibrationSamples is not null) return;
+
+        _calibrationSamples = new();
+        await Task.Delay(5000);
+        var samples = _calibrationSamples;
+        _calibrationSamples = null;
+
+        if (samples.Count == 0) return;
+
+        // Median statt Durchschnitt: ein einzelnes Husten verfälscht das Ergebnis nicht
+        samples.Sort();
+        var quiet = samples[samples.Count / 2];
+        _settings.HappyMax = Math.Min(98, Math.Round(quiet + 10));
+        _settings.NeutralMax = Math.Min(99, Math.Round(quiet + 20));
+        await SettingsService.SaveAsync(_settings);
+    }
+
+    private async Task SaveAsync()
+    {
+        await SettingsService.SaveAsync(_settings);
+        _showSettings = false;
+    }
+
+    private async Task ResetAsync()
+    {
+        _settings.ResetToDefaults();
+        await SettingsService.SaveAsync(_settings);
+    }
+
+    private async Task ToggleFullscreenAsync()
+    {
+        if (_module is not null)
+            await _module.InvokeVoidAsync("toggleFullscreen");
+    }
+
+    // Wichtig: InvariantCulture, sonst schreibt C# im deutschen Browser "52,5%" ins CSS -> ungültig
+    private static string Pct(double value) =>
+        Math.Clamp(value, 0, 100).ToString("0.#", CultureInfo.InvariantCulture) + "%";
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_module is not null)
+        {
+            try
+            {
+                await _module.InvokeVoidAsync("stop");
+                await _module.DisposeAsync();
+            }
+            catch (JSDisconnectedException) { }
+        }
+        _selfRef?.Dispose();
+    }
+}
